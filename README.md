@@ -24,4 +24,6 @@ Accounts found to have a collision will check the name information along with th
 
 If Enable Account Creation is not selected, only reports are generated and no actions are taken place. If Enable Account Creation and Enable Account Suspension, accounts that are present in the OU's searched but not in the open roster file will be disabled.
 
+Reports are emailed to the account specified in the SMTP settings tab, and also copied to the reports directory.
+
 If you desire more features, or want to contribute, please contact cfikes@fikesmedia.com
