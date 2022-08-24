@@ -205,7 +205,7 @@ function CheckPreviousUnenrolled(){
                 $ReportEnabledPrevious += 1
             } Catch {
                 AddReportEntry -LocalLocation $ReportFile.toString() -Status "Error" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.SAMUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message "Error Enabling Previous Student"
-                $ReportErrorsLogged += 1
+                $global:ReportErrorsLogged += 1
             }
         } else {
             AddReportEntry -LocalLocation $ReportFile.toString() -Status "Audit Enabled" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.SAMUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message "Previous Student"
@@ -220,13 +220,12 @@ function CreateNewStudentAccount() {
         $NewStudentAccount
     )
 
-    
 
     if($Settings.EnableCreation -eq $true) {
         Try {
             # Create user and enable
-            New-ADUser -Path $NewStudentAccount.OU -SamAccountName $NewStudentAccount.SAMUsername -Name $NewStudentAccount.DisplayName -DisplayName $NewStudentAccount.DisplayName -GivenName $NewStudentAccount.FirstName -Surname $NewStudentAccount.LastName -EmailAddress $NewStudentAccount.Email -AccountPassword $NewStudentAccount.PasswordSecure -OtherAttributes @{'pager'=$NewStudentAccount.Pager;'employeeid'=$NewStudentAccount.EmployeeID}
-            Set-AdUser -UserPrincipalName $NewStudentAccount.ADUPN -Identity $NewStudentAccount.SAMUsername
+            New-ADUser -Path $NewStudentAccount.OU -SamAccountName $NewStudentAccount.SAMUsername -Name $NewStudentAccount.DisplayName -DisplayName $NewStudentAccount.DisplayName -GivenName $NewStudentAccount.FirstName -Surname $NewStudentAccount.LastName -EmailAddress $NewStudentAccount.Email -AccountPassword $NewStudentAccount.PasswordSecure -OtherAttributes @{'pager'=$NewStudentAccount.Pager;'employeeid'=$NewStudentAccount.EmployeeID} -ErrorAction Stop
+            Set-AdUser -UserPrincipalName $NewStudentAccount.UserPrincipalName -Identity $NewStudentAccount.SAMUsername
             Enable-ADAccount -Identity $NewStudentAccount.SAMUsername
             # Add User to Students Group
             if (-not([string]::IsNullOrEmpty($Settings.DefaultGroup))) {
@@ -234,7 +233,7 @@ function CreateNewStudentAccount() {
                     Add-ADGroupMember -Identity $Settings.DefaultGroup -Members $NewStudentAccount.SAMUsername
                 } Catch {
                     AddReportEntry -LocalLocation $ReportFile.toString() -Status "Error" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.SAMUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message "Could not assign group membership"    
-                    $ReportErrorsLogged += 1
+                    $global:ReportErrorsLogged += 1
                 }
             }
             # Create HomeDirectory if setting exist
@@ -277,21 +276,21 @@ function CreateNewStudentAccount() {
                     }
                 }
             } Catch {
-                AddReportEntry -LocalLocation $ReportFile.toString() -Status "Error" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.SAMUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message "Failed to create home directory"
-                $ReportErrorsLogged += 1
+                AddReportEntry -LocalLocation $ReportFile.toString() -Status "Error" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.ReportedUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message "Failed to create home directory"
+                $global:ReportErrorsLogged += 1
             }
             #Everything Completed successfully
-            AddReportEntry -LocalLocation $ReportFile.toString() -Status "Complete" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.SAMUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message ""
+            AddReportEntry -LocalLocation $ReportFile.toString() -Status "Complete" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.ReportedUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message ""
             $ReportCreatedAccounts += 1
         } Catch {
             # Output error to screen
             Write-Host $_
             # Log Error to Report
-            AddReportEntry -LocalLocation $ReportFile.toString() -Status "Failure" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.SAMUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message "Failure to create user"
+            AddReportEntry -LocalLocation $ReportFile.toString() -Status "Failure" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.ReportedUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message "Failure to create user"
             $ReportFailuresLogged += 1
         }
     } else {
-        AddReportEntry -LocalLocation $ReportFile.toString() -Status "Audit Creation" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.SAMUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message "Account not created. AUDIT MODE"
+        AddReportEntry -LocalLocation $ReportFile.toString() -Status "Audit Creation" -DisplayName $NewStudentAccount.DisplayName -UserName $NewStudentAccount.ReportedUsername -Email $NewStudentAccount.Email -StudentID $NewStudentAccount.EmployeeID -PasswordClear $NewStudentAccount.PasswordClear -Class $NewStudentAccount.ClassOf -OU $NewStudentAccount.OU -Message "Account not created. AUDIT MODE"
     }
 }
 # END Execution of Account Creation
@@ -325,7 +324,21 @@ function DisableUnEnrolled(){
     ForEach($User in $DisableList){
         $ThisUser = Get-ADUser -Identity $User -Properties DisplayName,mail,Givenname,Surname,SamAccountName,EmployeeID,DistinguishedName
         
-        If($Settings.EnableSuspension -eq $true) {
+        # Load ignore list
+        try {
+            [string[]]$ignoreFile = Get-Content -Path "ignore.txt" -ErrorAction 'silentlycontinue'
+        
+            if ($($ignoreFile -match $User).Length -gt 0){
+                $SkipThisUser = $true
+            } else {
+                $SkipThisUser = $false
+            }
+        }
+        catch {
+            $SkipThisUser = $false
+        }
+
+        If(($Settings.EnableSuspension -eq $true) -and ($SkipThisUser -eq $false)) {
             Try {
                 Disable-ADAccount -Identity $ThisUser.SAMAccountName
                 AddReportEntry -LocalLocation $ReportFile.toString() -Status "Disabled" -DisplayName $ThisUser.DisplayName -UserName $ThisUser.SAMAccountName -Email $ThisUser.mail -StudentID "$ThisUser.EmployeeID" -PasswordClear "" -Class "" -OU $ThisUser.DistinguishedName -Message ""
@@ -334,7 +347,11 @@ function DisableUnEnrolled(){
                 AddReportEntry -LocalLocation $ReportFile.toString() -Status "Error" -DisplayName $ThisUser.DisplayName -UserName $ThisUser.SAMAccountName -Email $ThisUser.mail -StudentID "$ThisUser.EmployeeID" -PasswordClear "" -Class "" -OU $ThisUser.DistinguishedName -Message "Error Disabling Account"
             }
         } Else {
-            AddReportEntry -LocalLocation $ReportFile.toString() -Status "Audit Suspension" -DisplayName $ThisUser.DisplayName -UserName $ThisUser.SAMAccountName -Email $ThisUser.mail -StudentID $ThisUser.EmployeeID -PasswordClear "" -Class "" -OU $ThisUser.DistinguishedName -Message "Account exist but was not disabled."
+            if ($SkipThisUser -eq $true) {
+                AddReportEntry -LocalLocation $ReportFile.toString() -Status "Ignore Suspension" -DisplayName $ThisUser.DisplayName -UserName $ThisUser.SAMAccountName -Email $ThisUser.mail -StudentID $ThisUser.EmployeeID -PasswordClear "" -Class "" -OU $ThisUser.DistinguishedName -Message "Account exist but was not disabled."
+            } else {
+                AddReportEntry -LocalLocation $ReportFile.toString() -Status "Audit Suspension" -DisplayName $ThisUser.DisplayName -UserName $ThisUser.SAMAccountName -Email $ThisUser.mail -StudentID $ThisUser.EmployeeID -PasswordClear "" -Class "" -OU $ThisUser.DistinguishedName -Message "Account exist but was not disabled."
+            }
         }
     }
 
@@ -393,7 +410,7 @@ CreateReport -LocalLocation $ReportFile
 
 # Create Counters for Email
 $ReportProcessedAccounts = 0
-$ReportErrorsLogged = 0
+$global:ReportErrorsLogged = 0
 $ReportFailuresLogged = 0
 $ReportCreatedAccounts = 0
 $ReportDisabledAccounts = 0
@@ -449,27 +466,63 @@ ForEach($Student in $StudentInfo) {
     Switch($SAMUsernameFormat) {
         "1" { 
                 $SAMUsername = $FirstName.ToLower() + '.' + $LastName.ToLower()
+                if($SAMUsername.Length -gt 19) { $SAMUsername = $SAMUsername.Substring(0,20) }
             }
         "2" { 
                 $SAMUsername = $LastName.ToLower() + '.' + $FirstName.ToLower()
+                if($SAMUsername.Length -gt 19) { $SAMUsername = $SAMUsername.Substring(0,20) }
             }
         "3" {
                 $SAMUsername = $FirstName.ToLower() + $LastName.ToLower()
+                if($SAMUsername.Length -gt 19) { $SAMUsername = $SAMUsername.Substring(0,20) }
             }
         "4" {
                 $SAMUsername = $LastName.ToLower() + $FirstName.ToLower()
+                if($SAMUsername.Length -gt 19) { $SAMUsername = $SAMUsername.Substring(0,20) }
             }
         "5" {
                 $SAMUsername = $FirstName.ToLower() + '_' + $LastName.ToLower()
+                if($SAMUsername.Length -gt 19) { $SAMUsername = $SAMUsername.Substring(0,20) }
             }
         "6" {
                 $SAMUsername = $LastName.ToLower() + '_' + $FirstName.ToLower()
+                if($SAMUsername.Length -gt 19) { $SAMUsername = $SAMUsername.Substring(0,20) }
             }
         default {
                 Write-Host "Please select a proper email format"
                 exit
             }
     }
+
+    # Build UserPrincipalName using Settings
+    # 1=F.L  2=L.F  3=FL  4=LF  5=F_L  6=L_F
+    Switch($SAMUsernameFormat) {
+        "1" { 
+                $UserPrincipalName = $FirstName.ToLower()+'.'+$LastName.ToLower()+"@"+$StudentADDomain.ToString().ToLower() 
+            }
+        "2" { 
+                $UserPrincipalName = $LastName.ToLower()+'.'+$FirstName.ToLower()+"@"+$StudentADDomain.ToString().ToLower()
+            }
+        "3" {
+                $UserPrincipalName = $FirstName.ToLower()+$LastName.ToLower()+"@"+$StudentADDomain.ToString().ToLower()
+            }
+        "4" {
+                $UserPrincipalName = $LastName.ToLower()+$FirstName.ToLower()+"@"+$StudentADDomain.ToString().ToLower()
+            }
+        "5" {
+                $UserPrincipalName = $FirstName.ToLower()+'_'+$LastName.ToLower()+"@"+$StudentADDomain.ToString().ToLower()
+            }
+        "6" {
+                $UserPrincipalName = $LastName.ToLower()+'_'+$FirstName.ToLower()+"@"+$StudentADDomain.ToString().ToLower()
+            }
+        default {
+                Write-Host "Please select a proper email format"
+                exit
+            }
+    }
+
+    #Reported Username
+    $ReportedUsername = $UserPrincipalName.Substring(0,$UserPrincipalName.LastIndexOf('@'))
 
     # Add to Enrolled Array
     $EnrolledUsers += $SAMUsername
@@ -496,12 +549,8 @@ ForEach($Student in $StudentInfo) {
 	$ClassOfYear = $ClassOfYear.ToString();
 
     # Other AD Fields
-    # Name
-    $Name = $FirstName + " " + $LastName
     # Display Name
     $DisplayName = $FirstName + " " + $LastName
-    # UPN for Full AD Account
-    $ADUPN = $SAMUsername + "@" + $StudentADDomain
     # Pager (Used for printing access)
     $Pager = $StudentID
     # EmployeeID (Used for Student ID field)
@@ -512,22 +561,22 @@ ForEach($Student in $StudentInfo) {
     # 1=F.L  2=L.F  3=FL  4=LF  5=F_L  6=L_F
     Switch($EmailUsernameFormat) {
         "1" { 
-                $EmailAddress = $FirstName.ToLower() + '.' + $LastName.ToLower() + "@" + $StudentEmailDomain.ToString().ToLower()
+                $EmailAddress = $FirstName.ToLower()+'.'+$LastName.ToLower()+"@"+$StudentEmailDomain.ToString().ToLower()
             }
         "2" { 
-                $EmailAddress = $LastName.ToLower() + '.' + $FirstName.ToLower() + "@" + $StudentEmailDomain.ToString().ToLower()
+                $EmailAddress = $LastName.ToLower()+'.'+$FirstName.ToLower()+"@"+$StudentEmailDomain.ToString().ToLower()
             }
         "3" {
-                $EmailAddress = $FirstName.ToLower() + $LastName.ToLower() + "@" + $StudentEmailDomain.ToString().ToLower()
+                $EmailAddress = $FirstName.ToLower()+$LastName.ToLower()+"@"+$StudentEmailDomain.ToString().ToLower()
             }
         "4" {
-                $EmailAddress = $LastName.ToLower() + $FirstName.ToLower() + "@" + $StudentEmailDomain.ToString().ToLower()
+                $EmailAddress = $LastName.ToLower()+$FirstName.ToLower()+"@"+$StudentEmailDomain.ToString().ToLower()
             }
         "5" {
-                $EmailAddress = $FirstName.ToLower() + '_' + $LastName.ToLower() + "@" + $StudentEmailDomain.ToString().ToLower()
+                $EmailAddress = $FirstName.ToLower()+'_'+$LastName.ToLower()+"@"+$StudentEmailDomain.ToString().ToLower()
             }
         "6" {
-                $EmailAddress = $LastName.ToLower() + '_' + $FirstName.ToLower() + "@" + $StudentEmailDomain.ToString().ToLower()
+                $EmailAddress = $LastName.ToLower()+'_'+$FirstName.ToLower()+"@"+$StudentEmailDomain.ToString().ToLower()
             }
         default {
                 Write-Host "Please select a proper email format"
@@ -543,19 +592,19 @@ ForEach($Student in $StudentInfo) {
                 $StudentPasswordClear = $StudentID
             }
         "2" {
-                $StudentPasswordClear = $FirstName.Substring(0,1) + $LastName.Substring(0,1) + $StudentID
+                $StudentPasswordClear = $FirstName.Substring(0,1)+$LastName.Substring(0,1)+$StudentID
             }
         "3" {
-                $StudentPasswordClear = $LastName.Substring(0,1) + $FirstName.Substring(0,1) + $StudentID
+                $StudentPasswordClear = $LastName.Substring(0,1)+$FirstName.Substring(0,1)+$StudentID
             }
         "4" {
-                $StudentPasswordClear = $FirstName.Substring(0,2) + $LastName.Substring(0,2) + $StudentID
+                $StudentPasswordClear = $FirstName.Substring(0,2)+$LastName.Substring(0,2)+$StudentID
             }
         "5" {
-                $StudentPasswordClear = $LastName.Substring(0,2) + $FirstName.Substring(0,2) + $StudentID
+                $StudentPasswordClear = $LastName.Substring(0,2)+$FirstName.Substring(0,2)+$StudentID
             }
         "6" {
-                $StudentPasswordClear = $Settings.DefaultPassword
+                $StudentPasswordClear = $SpecificDefaultPassword
             }
         default {
                 Write-Host "Please select a proper password format "
@@ -579,12 +628,13 @@ ForEach($Student in $StudentInfo) {
 
     <# Create New user Object #>
     $NewStudentAccount = New-Object -TypeName psobject
+    $NewStudentAccount | Add-Member -NotePropertyName UserPrincipalName -NotePropertyValue $UserPrincipalName
     $NewStudentAccount | Add-Member -NotePropertyName SAMUsername -NotePropertyValue $SAMUsername
+    $NewStudentAccount | Add-Member -NotePropertyName ReportedUsername -NotePropertyValue $ReportedUsername
     $NewStudentAccount | Add-Member -NotePropertyName FirstName -NotePropertyValue $FirstName
     $NewStudentAccount | Add-Member -NotePropertyName MiddleName -NotePropertyValue $MiddleName
     $NewStudentAccount | Add-Member -NotePropertyName LastName -NotePropertyValue $LastName
     $NewStudentAccount | Add-Member -NotePropertyName DisplayName -NotePropertyValue $DisplayName
-    $NewStudentAccount | Add-Member -NotePropertyName UPN -NotePropertyValue $ADUPN
     $NewStudentAccount | Add-Member -NotePropertyName EmployeeID -NotePropertyValue $EmployeeID
     $NewStudentAccount | Add-Member -NotePropertyName Pager -NotePropertyValue $Pager
     $NewStudentAccount | Add-Member -NotePropertyName Email -NotePropertyValue $EmailAddress
@@ -618,18 +668,13 @@ $AttachmentArray += $ReportFile.toString()
 # Mode Message
 if ($Settings.EnableCreation -eq $false) {
     $StatusMessage = "Account creation is not enabled. Informational purposes only."
-} elseif ($Settings.EnavleCreation -eq $true) {
+} elseif ($Settings.EnableCreation -eq $true) {
     $StatusMessage = "Please review the report for any errors."
 }
 $EmailBody =@"
 <h2 style="color:#000">Open Roster AD Sync Results</h2>
 <table style="color:#000">
 <tr><td style="width:160px">Total Processed Students</td><td>$ReportProcessedAccounts</td></tr>
-<tr><td style="width:160px">Created Accounts</td><td>$ReportCreatedAccounts</td></tr>
-<tr><td style="width:160px">Enabled Accounts</td><td>$ReportEnabledPrevious</td></tr>
-<tr><td style="width:160px">Account Errors</td><td>$ReportErrorsLogged</td></tr>
-<tr><td style="width:160px">Disabled Accounts</td><td>$ReportDisabledAccounts</td></tr>
-<tr><td style="width:160px">Complete Failures</td><td>$ReportFailuresLogged</td></tr>
 <tr><td colspan="2"></td></tr>
 <tr><td colspan="2">$StatusMessage</td></tr>
 </table>
@@ -664,7 +709,7 @@ $ReportCLI | Add-Member -NotePropertyName "Processed Accounts" -NotePropertyValu
 $ReportCLI | Add-Member -NotePropertyName "Created Accounts" -NotePropertyValue $ReportCreatedAccounts
 $ReportCLI | Add-Member -NotePropertyName "Enabled Accounts" -NotePropertyValue $ReportEnabledPrevious
 $ReportCLI | Add-Member -NotePropertyName "Disabled Accounts" -NotePropertyValue $ReportDisabledAccounts
-$ReportCLI | Add-Member -NotePropertyName "Errors" -NotePropertyValue $ReportErrorsLogged
+$ReportCLI | Add-Member -NotePropertyName "Errors" -NotePropertyValue $global:ReportErrorsLogged
 $ReportCLI | Add-Member -NotePropertyName "Failures" -NotePropertyValue $ReportFailuresLogged
 
 # Output Report
@@ -682,7 +727,7 @@ if(Test-Path -Path $Settings.ReportDir) {
     $GiveUpCounter = 0
     While($ReportFileNotMoved) {
         Try {
-            Move-Item -Path $ReportFile -ErrorAction Stop
+            Remove-Item -Path $ReportFile -ErrorAction Stop
             $ReportFileNotMoved = $false
         } Catch {
             Write-Host "File locked, waiting for reattempt . . ."
